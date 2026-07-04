@@ -1,0 +1,355 @@
+# =============================================================================
+# Atheric — IDX Kompas100 forecasting dataset pipeline configuration
+#
+# Every tunable of the pipeline lives here. Code must not hardcode source
+# URLs, window lengths, thresholds, or file locations.
+# =============================================================================
+
+project:
+  name: atheric-idx-dataset
+  timezone: Asia/Jakarta
+
+paths:
+  tickers_file: tickers.json
+  log_dir: logs
+  outputs:
+    metadata_saham: data/raw/metadata_saham.csv
+    corporate_actions: data/raw/corporate_actions.csv
+    raw_teknikal: data/raw/RawTeknikal.csv
+    raw_funda: data/raw/RawFunda.csv
+    raw_macro_dir: data/raw/macro
+    raw_news: data/raw/news/articles.csv
+    dataset_teknikal: data/interim/DatasetTeknikal.csv
+    dataset_funda: data/interim/DatasetFunda.csv
+    dataset_macro: data/interim/DatasetMacro.csv
+    dataset_macro_sector: data/interim/DatasetMacroSector.csv
+    dataset_sentimen: data/interim/DatasetSentimen.csv
+    dataset_sentimen_market: data/interim/DatasetSentimenMarket.csv
+    dataset_sentimen_sector: data/interim/DatasetSentimenSector.csv
+    main_dataset: data/processed/MainDataset.csv
+    sentimen: data/processed/sentimen.csv   # separate deliverable; NOT joined into MainDataset
+
+http:
+  user_agent: >-
+    Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
+    (KHTML, like Gecko) Chrome/126.0 Safari/537.36
+  timeout_seconds: 40
+  max_retries: 3
+  backoff_factor: 1.5
+  request_delay_seconds: 0.5
+
+# -----------------------------------------------------------------------------
+# OHLCV (yfinance) — full history since listing ("max")
+# -----------------------------------------------------------------------------
+ohlcv:
+  period: max
+  interval: 1d
+  auto_adjust: false        # keep raw prices; adjustment done in cleaning stage
+  batch_size: 25            # tickers per yf.download call
+  min_rows: 60              # drop tickers with less history than this
+  max_ffill_gap_days: 5     # forward-fill halted-trading gaps up to N days
+
+# -----------------------------------------------------------------------------
+# Universe construction (liquidity filter + ARA/ARB flags)
+# -----------------------------------------------------------------------------
+universe:
+  liquidity:
+    turnover_window_days: 20        # rolling median window of value traded
+    min_median_turnover_idr: 1.0e+9 # 1 miliar IDR/day → is_liquid flag
+  price_limits:                     # IDX auto-reject bands (simplified, symmetric)
+    tiers:
+      - {min_price: 0,    max_price: 200,   limit_pct: 0.35}
+      - {min_price: 200,  max_price: 5000,  limit_pct: 0.25}
+      - {min_price: 5000, max_price: 1.0e+12, limit_pct: 0.20}
+    tolerance: 0.95                 # flag when |daily return| >= limit * tolerance
+
+# -----------------------------------------------------------------------------
+# Technical indicators
+# -----------------------------------------------------------------------------
+technical:
+  return_windows: [5, 20, 60, 250]
+  sma_windows: [20, 60]
+  macd: {fast: 12, slow: 26, signal: 9}
+  rsi_period: 14
+  mfi_period: 14
+  obv_slope_window: 20
+  volume_sma_window: 20
+  atr_period: 14
+  realized_vol_window: 20
+  vol_ratio: {short: 5, long: 60}
+  bollinger: {window: 20, num_std: 2.0}
+  high_52w_window: 252
+  close_pos_window: 20
+  cross_section:
+    min_stocks_per_day: 10          # skip z-scores on days with fewer names
+    return_windows: [20, 60]        # z-score of these return columns
+  window_dressing:
+    month: 12                       # December year-end window dressing
+    last_n_trading_days: 5
+
+# -----------------------------------------------------------------------------
+# Fundamentals (stockanalysis.com primary, yfinance fallback)
+# -----------------------------------------------------------------------------
+fundamentals:
+  provider_chain: [stockanalysis, yfinance]
+  stockanalysis:
+    income_url: "https://stockanalysis.com/quote/idx/{symbol}/financials/__data.json?p={period}"
+    balance_url: "https://stockanalysis.com/quote/idx/{symbol}/financials/balance-sheet/__data.json?p={period}"
+    periods: [quarterly, annual]    # quarterly preferred; annual extends history
+  # IDX/OJK reporting deadlines used to estimate release date when the true
+  # publication date is not available from the source (conservative).
+  release_lag_days: {quarterly: 45, annual: 90}
+  # canonical field -> candidate source fields, first hit wins
+  # (covers both the industrial and the bank statement templates)
+  field_map:
+    revenue:             [revenue, revenueBank]
+    cogs:                [cor]
+    gross_profit:        [gp]
+    operating_profit:    [opinc]
+    pretax_income:       [pretax, ebtBank]
+    net_income:          [netinccmn, netinc]
+    eps:                 [epsdil, epsBasic]
+    shares_out:          [sharesDiluted, sharesBasic]
+    total_assets:        [assets]
+    total_equity:        [equity, totalCommonEquity]
+    total_liabilities:   [liabilities, liabilitiesBank]
+    current_assets:      [totalCurrentAssets, currentAssets]
+    current_liabilities: [totalCurrentLiabilities, currentLiabilities]
+    cash_equivalents:    [cashneq]
+    total_debt:          [debt]
+  ttm_quarters: 4
+  yoy_quarters: 4
+
+# -----------------------------------------------------------------------------
+# Macro & commodities
+# Each series declares an ordered source chain; the first driver that
+# returns data wins. Drivers: fred_api (needs FRED_API_KEY), dbnomics, yfinance.
+# Only free, programmatic sources are used — there is no manual/CSV fallback.
+# transform: none | yoy_pct  (applied right after fetching)
+# publication_lag_days: days after observation period end until public release
+# staleness_flag_days: if set, emit a <series>_stale flag = 1 whenever the
+#   forward-filled value is older than N days (honest marker instead of a
+#   silent carry-forward for sources that may stop updating).
+# -----------------------------------------------------------------------------
+macro:
+  fred_api:
+    base_url: "https://api.stlouisfed.org/fred/series/observations"
+    api_key_env: FRED_API_KEY
+  dbnomics:
+    base_url: "https://api.db.nomics.world/v22/series"
+  features:
+    zscore_window: 252              # trading-day z-score of daily-aligned level
+    change_windows: [5, 20]         # daily-aligned pct changes
+  series:
+    # --- domestik Indonesia ---
+    - name: bi_rate
+      group: domestic
+      frequency: monthly
+      publication_lag_days: 1
+      transform: none
+      sources:
+        - {driver: dbnomics, series_id: "BIS/WS_CBPOL/M.ID"}
+        - {driver: dbnomics, series_id: "BIS/WS_CBPOL/D.ID", frequency: daily, publication_lag_days: 1}
+    - name: id_cpi_yoy
+      group: domestic
+      frequency: monthly
+      publication_lag_days: 7
+      transform: yoy_pct
+      sources:
+        - {driver: dbnomics, series_id: "IMF/CPI/M.ID.PCPI_IX"}
+        - {driver: fred_api, series_id: FPCPITOTLZGIDN, transform: none}
+    - name: usd_idr
+      group: domestic
+      frequency: daily
+      publication_lag_days: 0
+      transform: none
+      sources:
+        - {driver: yfinance, ticker: "USDIDR=X"}
+        - {driver: yfinance, ticker: "IDR=X"}
+    - name: id_fx_reserves
+      group: domestic
+      frequency: monthly
+      publication_lag_days: 7
+      transform: none
+      sources:
+        - {driver: dbnomics, series_id: "IMF/IFS/M.ID.RAFA_USD"}
+    # --- global ---
+    - name: fed_funds_rate
+      group: global
+      frequency: monthly
+      publication_lag_days: 1
+      transform: none
+      sources:
+        - {driver: fred_api, series_id: FEDFUNDS}
+        - {driver: dbnomics, series_id: "FED/H15/RIFSPFF_N.M"}
+    - name: us_cpi_yoy
+      group: global
+      frequency: monthly
+      publication_lag_days: 14
+      transform: yoy_pct
+      sources:
+        - {driver: fred_api, series_id: CPIAUCSL}
+        - {driver: dbnomics, series_id: "BLS/cu/CUSR0000SA0"}
+    - name: us_10y_yield
+      group: global
+      frequency: daily
+      publication_lag_days: 1
+      transform: none
+      sources:
+        - {driver: fred_api, series_id: DGS10}
+        - {driver: yfinance, ticker: "^TNX"}
+    - name: dxy
+      group: global
+      frequency: daily
+      publication_lag_days: 0
+      transform: none
+      sources:
+        - {driver: yfinance, ticker: "DX-Y.NYB"}
+    - name: vix
+      group: global
+      frequency: daily
+      publication_lag_days: 0
+      transform: none
+      sources:
+        - {driver: yfinance, ticker: "^VIX"}
+    - name: us_manufacturing_activity
+      group: global
+      frequency: monthly
+      publication_lag_days: 15
+      transform: none
+      # ISM/S&P PMI is no longer distributed on FRED free tier; IPMAN
+      # (Industrial Production: Manufacturing index) is the closest free
+      # proxy for US manufacturing-sector activity.
+      sources:
+        - {driver: fred_api, series_id: IPMAN}
+    # --- komoditas ---
+    # NOTE: Newcastle coal is intentionally NOT collected. The only free daily
+    # source (MTF=F) went stale end-2025, and an equity producer (BTU/1088.HK)
+    # is a misleading price proxy — so coal is dropped rather than approximated.
+    - name: cpo
+      group: commodity
+      frequency: daily
+      publication_lag_days: 0
+      transform: none
+      sources:
+        - {driver: yfinance, ticker: "CPO=F"}
+        - {driver: dbnomics, series_id: "IMF/PCPS/M.W00.PPOIL.USD", frequency: monthly, publication_lag_days: 14}
+    - name: nickel
+      group: commodity
+      frequency: monthly
+      publication_lag_days: 14
+      transform: none
+      sources:
+        - {driver: fred_api, series_id: PNICKUSDM}
+        - {driver: dbnomics, series_id: "IMF/PCPS/M.W00.PNICK.USD"}
+    - name: brent_oil
+      group: commodity
+      frequency: daily
+      publication_lag_days: 0
+      transform: none
+      sources:
+        - {driver: yfinance, ticker: "BZ=F"}
+    - name: gold
+      group: commodity
+      frequency: daily
+      publication_lag_days: 0
+      transform: none
+      sources:
+        - {driver: yfinance, ticker: "GC=F"}
+    - name: copper
+      group: commodity
+      frequency: daily
+      publication_lag_days: 0
+      transform: none
+      sources:
+        - {driver: yfinance, ticker: "HG=F"}
+    - name: tin
+      group: commodity
+      frequency: monthly
+      publication_lag_days: 14
+      transform: none
+      sources:
+        - {driver: fred_api, series_id: PTINUSDM}
+        - {driver: dbnomics, series_id: "IMF/PCPS/M.W00.PTIN.USD"}
+    - name: rubber
+      group: commodity
+      frequency: monthly
+      publication_lag_days: 14
+      transform: none
+      sources:
+        - {driver: dbnomics, series_id: "IMF/PCPS/M.W00.PRUBB.USD"}
+  # commodity exposure per yfinance sector → sector-level commodity factor
+  sector_commodity_map:
+    Energy: [brent_oil]
+    Basic Materials: [nickel, gold, copper, tin, cpo]
+    Consumer Defensive: [cpo, rubber]
+    Industrials: [brent_oil, copper]
+    Utilities: [brent_oil]
+  sector_return_window: 20          # rolling return window for sector factor
+
+# -----------------------------------------------------------------------------
+# Sentiment (RSS) — lexicon scoring, entity mapping, decayed daily aggregation
+# -----------------------------------------------------------------------------
+sentiment:
+  lexicon_file: atheric/resources/sentiment_lexicon.yaml
+  feeds:
+    # Lokal Indonesia
+    - {source: kontan,          url: "https://investasi.kontan.co.id/rss",  lang: id}
+    - {source: kontan,          url: "https://nasional.kontan.co.id/rss",   lang: id}
+    - {source: kontan,          url: "https://industri.kontan.co.id/rss",   lang: id}
+    - {source: bisnis,          url: "https://rss.bisnis.com/",             lang: id}
+    - {source: cnbc_indonesia,  url: "https://www.cnbcindonesia.com/market/rss", lang: id}
+    - {source: cnbc_indonesia,  url: "https://www.cnbcindonesia.com/news/rss",   lang: id}
+    - {source: cnbc_indonesia,  url: "https://www.cnbcindonesia.com/rss",        lang: id}
+    # Global
+    - {source: yahoo_finance,   url: "https://finance.yahoo.com/rss/topstories", lang: en}
+    - {source: yahoo_finance,   url: "https://finance.yahoo.com/rss/industry?s=commodities", lang: en}
+    - {source: cnbc_intl,       url: "https://www.cnbc.com/id/100003114/device/rss/rss.html", lang: en}
+    - {source: cnbc_intl,       url: "https://www.cnbc.com/id/10000664/device/rss/rss.html",  lang: en}
+    - {source: cnbc_intl,       url: "https://www.cnbc.com/id/15839135/device/rss/rss.html",  lang: en}
+  google_news:
+    base_url: "https://news.google.com/rss/search"
+    params: {hl: en-US, gl: US, ceid: "US:en"}
+    queries:
+      - "fed rate"
+      - "emerging market"
+      - "indonesia economy"
+      - "commodity prices"
+      - "indonesia stock market"
+      - "IHSG bursa efek"
+  aggregation:
+    decay_half_life_days: 3.0
+    decay_window_days: 14
+  company_name_stopwords: [pt, tbk, persero, indonesia, tbk.]
+  min_name_token_len: 4
+
+# -----------------------------------------------------------------------------
+# Final alignment
+# -----------------------------------------------------------------------------
+alignment:
+  fundamental_max_staleness_days: 400   # drop funda info older than this
+  macro_ffill_limit_days: 45            # forward-fill macro at most this far
+  float_format: "%.6g"                  # CSV float formatting
+  write_parquet: false                  # also write MainDataset.parquet
+  # fundamental feature columns carried into MainDataset
+  fundamental_columns:
+    - gross_margin
+    - operating_margin
+    - net_margin
+    - current_ratio
+    - debt_to_equity
+    - debt_to_assets
+    - cash_to_assets
+    - equity_ratio
+    - roa
+    - roe
+    - revenue_yoy
+    - net_income_yoy
+    - eps_yoy
+    - revenue_qoq
+    - net_income_qoq
+    - eps_qoq
+    - revenue_ttm
+    - net_income_ttm
+    - eps_ttm
+    - bvps

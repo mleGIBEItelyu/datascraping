@@ -1,0 +1,9 @@
+# Large data files are stored via Git LFS (GitHub rejects files > 100 MB
+# without it; MainDataset.csv ~424 MB, DatasetTeknikal.csv ~110 MB).
+*.csv filter=lfs diff=lfs merge=lfs -text
+
+# Keep text files with normalized line endings.
+*.py   text eol=lf
+*.md   text eol=lf
+*.yaml text eol=lf
+*.yml  text eol=lf

@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# Secrets — never commit (contains real FRED_API_KEY)
+.env
+
+# Logs
+logs/
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# NOTE: data/ CSVs ARE committed (tracked via Git LFS, see .gitattributes).

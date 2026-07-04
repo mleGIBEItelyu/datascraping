@@ -1,0 +1,404 @@
+{
+  "indonesia": [
+    {
+      "ticker": "AADI.JK",
+      "name": "Adaro Andalan Indonesia Tbk."
+    },
+    {
+      "ticker": "ACES.JK",
+      "name": "Aspirasi Hidup Indonesia Tbk."
+    },
+    {
+      "ticker": "ADMR.JK",
+      "name": "Alamtri Minerals Indonesia Tbk."
+    },
+    {
+      "ticker": "ADRO.JK",
+      "name": "Alamtri Resources Indonesia Tbk"
+    },
+    {
+      "ticker": "AKRA.JK",
+      "name": "AKR Corporindo Tbk"
+    },
+    {
+      "ticker": "AMMN.JK",
+      "name": "Amman Mineral Internasional Tbk"
+    },
+    {
+      "ticker": "AMRT.JK",
+      "name": "Sumber Alfaria Trijaya Tbk"
+    },
+    {
+      "ticker": "ANTM.JK",
+      "name": "Aneka Tambang Tbk."
+    },
+    {
+      "ticker": "ARCI.JK",
+      "name": "Archi Indonesia Tbk."
+    },
+    {
+      "ticker": "ARTO.JK",
+      "name": "Bank Jago Tbk."
+    },
+    {
+      "ticker": "ASII.JK",
+      "name": "Astra International Tbk"
+    },
+    {
+      "ticker": "BBCA.JK",
+      "name": "Bank Central Asia Tbk"
+    },
+    {
+      "ticker": "BBNI.JK",
+      "name": "Bank Negara Indonesia  (Persero"
+    },
+    {
+      "ticker": "BBRI.JK",
+      "name": "Bank Rakyat Indonesia (Persero)"
+    },
+    {
+      "ticker": "BBTN.JK",
+      "name": "Bank Tabungan Negara (Persero) "
+    },
+    {
+      "ticker": "BBYB.JK",
+      "name": "Bank Neo Commerce Tbk."
+    },
+    {
+      "ticker": "BKSL.JK",
+      "name": "Sentul City Tbk."
+    },
+    {
+      "ticker": "BMRI.JK",
+      "name": "Bank Mandiri (Persero) Tbk"
+    },
+    {
+      "ticker": "BREN.JK",
+      "name": "Barito Renewables Energy Tbk."
+    },
+    {
+      "ticker": "BRIS.JK",
+      "name": "Bank Syariah Indonesia (Persero"
+    },
+    {
+      "ticker": "BRMS.JK",
+      "name": "Bumi Resources Minerals Tbk."
+    },
+    {
+      "ticker": "BRPT.JK",
+      "name": "Barito Pacific Tbk."
+    },
+    {
+      "ticker": "BSDE.JK",
+      "name": "Bumi Serpong Damai Tbk"
+    },
+    {
+      "ticker": "BTPS.JK",
+      "name": "Bank BTPN Syariah Tbk."
+    },
+    {
+      "ticker": "BUKA.JK",
+      "name": "Bukalapak.com Tbk."
+    },
+    {
+      "ticker": "BULL.JK",
+      "name": "Buana Lintas Lautan Tbk."
+    },
+    {
+      "ticker": "BUMI.JK",
+      "name": "Bumi Resources Tbk"
+    },
+    {
+      "ticker": "BUVA.JK",
+      "name": "Bukit Uluwatu Villa Tbk."
+    },
+    {
+      "ticker": "CBDK.JK",
+      "name": "Bangun Kosambi Sukses Tbk."
+    },
+    {
+      "ticker": "CMRY.JK",
+      "name": "Cisarua Mountain Dairy Tbk."
+    },
+    {
+      "ticker": "CPIN.JK",
+      "name": "Charoen Pokphand Indonesia Tbk"
+    },
+    {
+      "ticker": "CUAN.JK",
+      "name": "Petrindo Jaya Kreasi Tbk."
+    },
+    {
+      "ticker": "DEWA.JK",
+      "name": "Darma Henwa Tbk"
+    },
+    {
+      "ticker": "DSSA.JK",
+      "name": "Dian Swastatika Sentosa Tbk"
+    },
+    {
+      "ticker": "ELSA.JK",
+      "name": "Elnusa Tbk"
+    },
+    {
+      "ticker": "EMTK.JK",
+      "name": "Elang Mahkota Teknologi Tbk"
+    },
+    {
+      "ticker": "ENRG.JK",
+      "name": "Energi Mega Persada Tbk"
+    },
+    {
+      "ticker": "ERAA.JK",
+      "name": "Erajaya Swasembada Tbk."
+    },
+    {
+      "ticker": "ESSA.JK",
+      "name": "ESSA Industries Indonesia Tbk."
+    },
+    {
+      "ticker": "EXCL.JK",
+      "name": "XLSMART Telecom Sejahtera Tbk."
+    },
+    {
+      "ticker": "GOTO.JK",
+      "name": "GoTo Gojek Tokopedia Tbk."
+    },
+    {
+      "ticker": "HEAL.JK",
+      "name": "Medikaloka Hermina Tbk."
+    },
+    {
+      "ticker": "HMSP.JK",
+      "name": "H.M. Sampoerna Tbk."
+    },
+    {
+      "ticker": "HRTA.JK",
+      "name": "Hartadinata Abadi Tbk."
+    },
+    {
+      "ticker": "ICBP.JK",
+      "name": "Indofood CBP Sukses Makmur Tbk."
+    },
+    {
+      "ticker": "INCO.JK",
+      "name": "Vale Indonesia Tbk."
+    },
+    {
+      "ticker": "INDF.JK",
+      "name": "Indofood Sukses Makmur Tbk"
+    },
+    {
+      "ticker": "INDY.JK",
+      "name": "Indika Energy Tbk"
+    },
+    {
+      "ticker": "INET.JK",
+      "name": "Sinergi Inti Andalan Prima Tbk."
+    },
+    {
+      "ticker": "INKP.JK",
+      "name": "Indah Kiat Pulp & Paper Tbk."
+    },
+    {
+      "ticker": "INTP.JK",
+      "name": "Indocement Tunggal Prakarsa Tbk"
+    },
+    {
+      "ticker": "ISAT.JK",
+      "name": "Indosat Tbk"
+    },
+    {
+      "ticker": "ITMG.JK",
+      "name": "Indo Tambangraya Megah Tbk"
+    },
+    {
+      "ticker": "JPFA.JK",
+      "name": "Japfa Comfeed Indonesia Tbk."
+    },
+    {
+      "ticker": "JSMR.JK",
+      "name": "Jasa Marga (Persero) Tbk"
+    },
+    {
+      "ticker": "KLBF.JK",
+      "name": "Kalbe Farma Tbk"
+    },
+    {
+      "ticker": "MAPA.JK",
+      "name": "Map Aktif Adiperkasa Tbk."
+    },
+    {
+      "ticker": "MAPB.JK",
+      "name": "MAP Boga Adiperkasa Tbk."
+    },
+    {
+      "ticker": "MAPI.JK",
+      "name": "Mitra Adiperkasa Tbk"
+    },
+    {
+      "ticker": "MBMA.JK",
+      "name": "Merdeka Battery Materials Tbk."
+    },
+    {
+      "ticker": "MDKA.JK",
+      "name": "Merdeka Copper Gold Tbk."
+    },
+    {
+      "ticker": "MEDC.JK",
+      "name": "Medco Energi Internasional Tbk."
+    },
+    {
+      "ticker": "MIKA.JK",
+      "name": "Mitra Keluarga Karyasehat Tbk."
+    },
+    {
+      "ticker": "MTDL.JK",
+      "name": "Metrodata Electronics Tbk"
+    },
+    {
+      "ticker": "MYOR.JK",
+      "name": "Mayora Indah Tbk"
+    },
+    {
+      "ticker": "NCKL.JK",
+      "name": "Trimegah Bangun Persada Tbk."
+    },
+    {
+      "ticker": "PGAS.JK",
+      "name": "Perusahaan Gas Negara (Persero)"
+    },
+    {
+      "ticker": "PGEO.JK",
+      "name": "Pertamina Geothermal Energy Tbk"
+    },
+    {
+      "ticker": "PNBN.JK",
+      "name": "Bank Pan Indonesia Tbk"
+    },
+    {
+      "ticker": "PTBA.JK",
+      "name": "Bukit Asam (Persero) Tbk."
+    },
+    {
+      "ticker": "PTRO.JK",
+      "name": "Petrosea Tbk"
+    },
+    {
+      "ticker": "PWON.JK",
+      "name": "Pakuwon Jati Tbk."
+    },
+    {
+      "ticker": "RATU.JK",
+      "name": "Raharja Energi Cepu Tbk."
+    },
+    {
+      "ticker": "RAJA.JK",
+      "name": "Rukun Raharja Tbk"
+    },
+    {
+      "ticker": "SCMA.JK",
+      "name": "Surya Citra Media Tbk"
+    },
+    {
+      "ticker": "SIDO.JK",
+      "name": "Industri Jamu dan Farmasi Sido "
+    },
+    {
+      "ticker": "SGER.JK",
+      "name": "Sumber Global Energy Tbk."
+    },
+    {
+      "ticker": "SMGR.JK",
+      "name": "Semen Indonesia (Persero) Tbk."
+    },
+    {
+      "ticker": "SMRA.JK",
+      "name": "Summarecon Agung Tbk"
+    },
+    {
+      "ticker": "SMSM.JK",
+      "name": "Selamat Sempurna Tbk"
+    },
+    {
+      "ticker": "SOHO.JK",
+      "name": "Soho Global Health Tbk."
+    },
+    {
+      "ticker": "SSIA.JK",
+      "name": "Surya Semesta Internusa Tbk"
+    },
+    {
+      "ticker": "SRTG.JK",
+      "name": "Saratoga Investama Sedaya Tbk."
+    },
+    {
+      "ticker": "TAPG.JK",
+      "name": "Triputra Agro Persada Tbk."
+    },
+    {
+      "ticker": "TBIG.JK",
+      "name": "Tower Bersama Infrastructure Tb"
+    },
+    {
+      "ticker": "TINS.JK",
+      "name": "Timah Tbk."
+    },
+    {
+      "ticker": "TKIM.JK",
+      "name": "Pabrik Kertas Tjiwi Kimia Tbk"
+    },
+    {
+      "ticker": "TLKM.JK",
+      "name": "Telkom Indonesia (Persero) Tbk."
+    },
+    {
+      "ticker": "TOWR.JK",
+      "name": "Sarana Menara Nusantara Tbk."
+    },
+    {
+      "ticker": "TPIA.JK",
+      "name": "Chandra Asri Pacific Tbk."
+    },
+    {
+      "ticker": "UNTR.JK",
+      "name": "United Tractors Tbk"
+    },
+    {
+      "ticker": "UNVR.JK",
+      "name": "Unilever Indonesia Tbk"
+    },
+    {
+      "ticker": "WIFI.JK",
+      "name": "Solusi Sinergi Digital Tbk."
+    },
+    {
+      "ticker": "WIKA.JK",
+      "name": "Wijaya Karya (Persero) Tbk"
+    },
+    {
+      "ticker": "WINS.JK",
+      "name": "Wintermar Offshore Marine Tbk."
+    },
+    {
+      "ticker": "WMUU.JK",
+      "name": "Widodo Makmur Unggas Tbk."
+    },
+    {
+      "ticker": "YUPI.JK",
+      "name": "Yupi Indo Jelly Gum Tbk."
+    },
+    {
+      "ticker": "DOID.JK",
+      "name": "BUMA Internasional Grup Tbk."
+    },
+    {
+      "ticker": "DMAS.JK",
+      "name": "Puradelta Lestari Tbk."
+    },
+    {
+      "ticker": "AGII.JK",
+      "name": "Samator Indo Gas Tbk."
+    }
+  ]
+}
