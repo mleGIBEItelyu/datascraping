@@ -137,6 +137,9 @@ macro:
     api_key_env: FRED_API_KEY
   dbnomics:
     base_url: "https://api.db.nomics.world/v22/series"
+  bps:
+    base_url: "https://webapi.bps.go.id/v1/api"
+    api_key_env: BPS_API_KEY
   features:
     zscore_window: 252              # trading-day z-score of daily-aligned level
     change_windows: [5, 20]         # daily-aligned pct changes
@@ -173,6 +176,22 @@ macro:
       transform: none
       sources:
         - {driver: dbnomics, series_id: "IMF/IFS/M.ID.RAFA_USD"}
+    # Leading indicator: neraca perdagangan Indonesia (ekspor FOB - impor CIF).
+    # BPS = sumber utama (resmi, gratis, ~1 bulan lag). DBnomics IMF DOT mirror
+    # dipakai sebagai fallback KEDUA (terbukti lag ~14 bulan saat dicek 2026-07,
+    # jauh lebih basi daripada BPS langsung).
+    # NOTE: OECD Composite Leading Indicator (CLI) untuk Indonesia (FRED
+    # IDNLOLITONOSTSAM) SUDAH DIHENTIKAN OECD sejak Jan 2024 (non-member
+    # economies) -> tidak dipakai karena akan basi permanen.
+    - name: id_trade_balance
+      group: domestic
+      frequency: monthly
+      publication_lag_days: 30
+      staleness_flag_days: 60
+      transform: none
+      sources:
+        - {driver: bps_dynamic_table, var_id: 498}
+        - {driver: dbnomics, series_id: "IMF/DOT/M.ID.TBG_USD.W00", publication_lag_days: 42}
     # --- global ---
     - name: fed_funds_rate
       group: global
@@ -223,9 +242,23 @@ macro:
       sources:
         - {driver: fred_api, series_id: IPMAN}
     # --- komoditas ---
-    # NOTE: Newcastle coal is intentionally NOT collected. The only free daily
-    # source (MTF=F) went stale end-2025, and an equity producer (BTU/1088.HK)
-    # is a misleading price proxy — so coal is dropped rather than approximated.
+    # Coal (Newcastle/API2 benchmark) - re-enabled with staleness flagging
+    # instead of being dropped. MTF=F went stale end-2025; rather than silently
+    # carrying forward an old price forever, `staleness_flag_days` produces a
+    # `coal_newcastle_stale` column (=1 once the carried-forward value is
+    # older than the threshold) so downstream models/analysts can see the gap
+    # explicitly. Fallback is annual-only IMF PCPS Australia coal (still a
+    # legitimate free source, just coarse) - useful once yfinance dries up
+    # completely.
+    - name: coal_newcastle
+      group: commodity
+      frequency: daily
+      publication_lag_days: 0
+      staleness_flag_days: 10
+      transform: none
+      sources:
+        - {driver: yfinance, ticker: "MTF=F"}
+        - {driver: dbnomics, series_id: "IMF/PCPS/A.W00.PCOALAU.USD", frequency: annual, publication_lag_days: 30}
     - name: cpo
       group: commodity
       frequency: daily
@@ -280,11 +313,11 @@ macro:
         - {driver: dbnomics, series_id: "IMF/PCPS/M.W00.PRUBB.USD"}
   # commodity exposure per yfinance sector → sector-level commodity factor
   sector_commodity_map:
-    Energy: [brent_oil]
+    Energy: [brent_oil, coal_newcastle]
     Basic Materials: [nickel, gold, copper, tin, cpo]
     Consumer Defensive: [cpo, rubber]
     Industrials: [brent_oil, copper]
-    Utilities: [brent_oil]
+    Utilities: [brent_oil, coal_newcastle]
   sector_return_window: 20          # rolling return window for sector factor
 
 # -----------------------------------------------------------------------------
@@ -353,3 +386,14 @@ alignment:
     - net_income_ttm
     - eps_ttm
     - bvps
+
+# -----------------------------------------------------------------------------
+# Storage — CSV lokal tetap output utama. Turso hanya sink tambahan opsional,
+# aktifkan setelah semua sumber data gratis yang mungkin sudah dieksplorasi.
+# Butuh: pip install libsql-client, lalu set env TURSO_DATABASE_URL & TURSO_AUTH_TOKEN.
+# -----------------------------------------------------------------------------
+storage:
+  turso:
+    enabled: false
+    url_env: TURSO_DATABASE_URL
+    token_env: TURSO_AUTH_TOKEN

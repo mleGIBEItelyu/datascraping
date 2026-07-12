@@ -1,0 +1,44 @@
+name: Sentiment Pipeline (4-hourly)
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'   # setiap 4 jam, di menit ke-0
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  run-sentiment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run news + sentiment + align
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: python main.py news sentiment align
+
+      - name: Commit & push hasil sentimen
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if git diff --cached --quiet; then
+            echo "Tidak ada perubahan sentimen."
+          else
+            git commit -m "chore: auto-update sentimen ($(date -u +'%Y-%m-%d %H:%M UTC'))"
+            git push
+          fi

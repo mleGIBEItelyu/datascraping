@@ -1,0 +1,45 @@
+name: Daily Data Pipeline
+
+on:
+  schedule:
+    # 18:00 WIB (UTC+7) = 11:00 UTC, setiap hari
+    - cron: '0 11 * * *'
+  workflow_dispatch: {}   # bisa dijalankan manual dari tab Actions
+
+permissions:
+  contents: write
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run full pipeline
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: python main.py all
+
+      - name: Commit & push hasil data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if git diff --cached --quiet; then
+            echo "Tidak ada perubahan data."
+          else
+            git commit -m "chore: auto-update dataset ($(date -u +'%Y-%m-%d %H:%M UTC'))"
+            git push
+          fi

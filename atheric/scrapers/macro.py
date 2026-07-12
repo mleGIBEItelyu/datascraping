@@ -84,6 +84,73 @@ def _fetch_yfinance(source: dict) -> pd.DataFrame:
     return df.dropna()
 
 
+def _fetch_bps_dynamic_table(http: HttpClient, cfg: Config, source: dict) -> pd.DataFrame:
+    """BPS (Badan Pusat Statistik) dynamic-table API — free, sign up at
+    https://webapi.bps.go.id for an API key.
+
+    Confirmed against the real API response (2026-07-12) for var 498 ("Nilai
+    Neraca Perdagangan"): the actual figures live in the `datacontent` dict,
+    keyed by concatenating (as plain strings, NOT zero-padded beyond their
+    natural width) `vervar + var + turvar + th_id + turtahun_month`, e.g.
+    vervar=9999 (Indonesia), var=498, turvar=0 ("Tidak ada" — no sub-split),
+    th_id=126 (year 2026), month=5 -> key "999949801265".
+
+    Two API calls per series:
+      1. list/model/th/.../var/{var}/key/{key}     -> all available th_id/year
+      2. list/model/data/.../var/{var}/th/{th_id}/key/{key} -> one year's data
+         (turvar/vervar/turtahun options + datacontent for that year)
+
+    We loop over every th_id to build the full available history in one go
+    (BPS var lists typically span ~9-10 years), and month code "13" (annual
+    total) is skipped since it's a derived aggregate, not a monthly point.
+    """
+    base = str(cfg.require("macro.bps.base_url")).rstrip("/")
+    key_env = str(cfg.get("macro.bps.api_key_env", "BPS_API_KEY"))
+    api_key = os.environ.get(key_env, "").strip()
+    if not api_key:
+        raise RuntimeError(f"{key_env} not set")
+    var_id = source["var_id"]
+    vervar = str(source.get("vervar", 9999))  # 9999 = national/Indonesia
+
+    th_payload = http.get_json(f"{base}/list/model/th/domain/0000/var/{var_id}/key/{api_key}")
+    if str(th_payload.get("status", "")).upper() != "OK":
+        raise RuntimeError(f"BPS th-list status={th_payload.get('status')}")
+    th_body = th_payload.get("data", [])
+    th_rows = th_body[1] if len(th_body) > 1 else []
+    if not th_rows:
+        return pd.DataFrame()
+
+    all_rows = []
+    for th_row in th_rows:
+        th_id = th_row["th_id"]
+        year = int(th_row["th"])
+        payload = http.get_json(
+            f"{base}/list/model/data/domain/0000/var/{var_id}/th/{th_id}/key/{api_key}"
+        )
+        if str(payload.get("status", "")).upper() != "OK":
+            continue
+        turvar_list = payload.get("turvar") or [{"val": "0"}]
+        turvar = str(turvar_list[0].get("val", "0"))
+        turtahun_list = payload.get("turtahun") or []
+        content = payload.get("datacontent") or {}
+        for tt in turtahun_list:
+            month = tt.get("val")
+            if month in (None, "13", 13):  # skip annual-total row
+                continue
+            month = int(month)
+            key_str = f"{vervar}{var_id}{turvar}{th_id}{month}"
+            if key_str in content:
+                all_rows.append((year, month, content[key_str]))
+
+    if not all_rows:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(all_rows, columns=["year", "month", "value"])
+    df["date"] = pd.to_datetime(dict(year=df["year"], month=df["month"], day=1)) + pd.offsets.MonthEnd(0)
+    df["value"] = pd.to_numeric(df["value"], errors="coerce")
+    return df[["date", "value"]].dropna().drop_duplicates("date").sort_values("date")
+
+
 def _apply_transform(df: pd.DataFrame, transform: str) -> pd.DataFrame:
     if transform == "yoy_pct":
         df = df.sort_values("date").reset_index(drop=True)
@@ -113,6 +180,8 @@ def fetch_series(http: HttpClient, cfg: Config, spec: dict) -> pd.DataFrame | No
                 df = _fetch_dbnomics(http, cfg, source)
             elif driver == "yfinance":
                 df = _fetch_yfinance(source)
+            elif driver == "bps_dynamic_table":
+                df = _fetch_bps_dynamic_table(http, cfg, source)
             else:
                 log.warning("%s: unknown driver %s", name, driver)
                 continue
