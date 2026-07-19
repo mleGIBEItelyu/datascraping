@@ -1,16 +1,33 @@
-# Proposal — Sentimen Historis (belum diimplementasi)
+# Proposal — Sentimen Historis (SUDAH DIIMPLEMENTASI 19 Juli 2026)
 
-> **STATUS: RENCANA KONKRET — MENUNGGU KONFIRMASI FINAL UNTUK MULAI KODING.**
-> Belum ada satu baris kode pipeline yang diubah. Update 17 Juli 2026:
-> keputusan sudah dipersempit ke **Opsi A saja** (GDELT file mentah, HTTP
-> gratis, tanpa akun/infrastruktur baru) berdasarkan arahan eksplisit:
-> **full gratis, tanpa budget berbayar, histori sebagian (tidak harus
-> sampai 2000-an) lebih baik daripada tidak ada sama sekali.** Opsi B
-> (BigQuery) dan D (berbayar) di §2/§3 di bawah **dicoret dari rencana**,
-> tetap didokumentasikan sebagai referensi kalau batasan berubah nanti.
-> Lihat [§6](#6-rencana-implementasi-konkret-opsi-a-terpilih) dan
-> [§7](#7-pemeliharaan--update-ke-depan) untuk rencana teknis & jawaban
-> pertanyaan susulan.
+> **STATUS FINAL (19 Juli 2026): SUDAH DIIMPLEMENTASI & DITES LIVE.**
+> Riwayat di bawah ini (isi asli 17 Juli 2026) dibiarkan apa adanya sebagai
+> jejak keputusan, TAPI **keputusan akhirnya beda dari yang tertulis di
+> bawah**: Opsi A (GDELT) yang tadinya dipilih di sini **DIBATALKAN** setelah
+> pengujian live lanjutan menunjukkan cakupan berita Indonesia di GDELT
+> nyaris nol (~0,02%) dan hasil pencocokan ticker didominasi salah-cocok
+> (lihat `sentiment_research_report.html` / laporan rapat terpisah untuk
+> detail pengujian itu). **Backend yang benar-benar dipakai: Wayback
+> Machine** (arsip RSS yang sudah dipakai project ini sendiri — Kontan,
+> Bisnis, CNBC Indonesia), bukan GDELT.
+>
+> **Yang sudah jalan (kode di `atheric/scrapers/news_historical.py`,
+> `atheric/features/sentiment.py`, stage `sentiment-backfill` di `cli.py`):**
+> - Dijalankan live 19 Juli 2026: **6.825 artikel** terkumpul dari arsip
+>   Wayback (rentang 2021-01-22 s/d 2025-10-18)
+> - Kolom `sent_source` di `DatasetSentimen.csv` menandai transparan asal
+>   tiap baris: `lexicon_live` (RSS harian), `lexicon_backfill` (Wayback),
+>   atau kosong (hari tanpa artikel baru, murni carry-forward decay)
+> - Stage `sentiment-backfill` sengaja **manual-only**, di luar
+>   `STAGE_ORDER` default — tidak ikut ter-trigger `python main.py all`
+>   atau cron harian/4-jam-an, sesuai desain "sekali-jalan" di §7 di bawah
+> - Resiliensi: 1 snapshot arsip yang gagal di-fetch tidak mematikan
+>   seluruh proses (di-log & dilewati), pola sama dengan scraper lain di
+>   project ini
+>
+> Sisa dokumen di bawah (§1-§7) tetap relevan sebagai **konteks riset &
+> alasan keputusan** — cuma bagian "Opsi A (GDELT)" yang sudah tidak
+> berlaku, sudah digantikan Wayback seperti dijelaskan di atas.
 
 ## TL;DR
 
