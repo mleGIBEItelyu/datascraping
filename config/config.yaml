@@ -19,10 +19,12 @@ paths:
     raw_funda: data/raw/RawFunda.csv
     raw_macro_dir: data/raw/macro
     raw_news: data/raw/news/articles.csv
+    raw_foreign_flow: data/raw/foreign_flow.csv
     dataset_teknikal: data/interim/DatasetTeknikal.csv
     dataset_funda: data/interim/DatasetFunda.csv
     dataset_macro: data/interim/DatasetMacro.csv
     dataset_macro_sector: data/interim/DatasetMacroSector.csv
+    dataset_foreign_flow: data/interim/DatasetForeignFlow.csv
     dataset_sentimen: data/interim/DatasetSentimen.csv
     dataset_sentimen_market: data/interim/DatasetSentimenMarket.csv
     dataset_sentimen_sector: data/interim/DatasetSentimenSector.csv
@@ -192,6 +194,23 @@ macro:
       sources:
         - {driver: bps_dynamic_table, var_id: 498}
         - {driver: dbnomics, series_id: "IMF/DOT/M.ID.TBG_USD.W00", publication_lag_days: 42}
+    # Leading indicator (Tugas B1): net foreign purchase agregat pasar BEI
+    # (BUKAN per-saham; per-saham lihat stage `foreign-flow` terpisah).
+    # Endpoint asli BEI ditemukan via network inspector, diverifikasi live
+    # 11 Jul 2026 -- respons JSON berisi seriesData harian (miliar Rp),
+    # agregat bulanan = jumlah harian. Wajib curl_cffi (lihat driver idx_stat
+    # di atheric/scrapers/macro.py -- Cloudflare menolak library requests).
+    - name: foreign_flow_net
+      group: domestic
+      frequency: monthly
+      publication_lag_days: 10
+      transform: none
+      sources:
+        - driver: idx_stat
+          api_url: "https://www.idx.co.id/primary/DigitalStatistic/GetApiData"
+          url_name: "LINK_DPS_TOTAL_NET_PURCHASE"
+          base_url: "https://idx.co.id/id/data-pasar/laporan-statistik/digital-statistic/monthly/equity-trading-by-investor/total-trading-by-investor-s-type-and-net-purchase-by-foreigners"
+          start_year: 2016
     # --- global ---
     - name: fed_funds_rate
       group: global
@@ -321,6 +340,16 @@ macro:
   sector_return_window: 20          # rolling return window for sector factor
 
 # -----------------------------------------------------------------------------
+# Foreign flow per-saham harian (Tugas B2) — BEI GetStockSummary
+# Endpoint terverifikasi live 11 Jul 2026; hanya punya data mulai 2020-01-02
+# (tanggal lebih awal mengembalikan recordsTotal=0 -- keterbatasan sumber).
+# Wajib curl_cffi (Cloudflare BEI menolak library requests).
+# -----------------------------------------------------------------------------
+foreign_flow:
+  start_date: "2020-01-02"   # batas awal ketersediaan data endpoint BEI
+  zscore_window: 60          # window rolling z-score per ticker (hari bursa)
+
+# -----------------------------------------------------------------------------
 # Sentiment (RSS) — lexicon scoring, entity mapping, decayed daily aggregation
 # -----------------------------------------------------------------------------
 sentiment:
@@ -355,6 +384,17 @@ sentiment:
     decay_window_days: 14
   company_name_stopwords: [pt, tbk, persero, indonesia, tbk.]
   min_name_token_len: 4
+  # Backfill sentimen historis (sekali-jalan, TIDAK ikut STAGE_ORDER default --
+  # jalankan manual: `python main.py sentiment-backfill`). DISCLAIMER: cakupan
+  # SANGAT bolong (arsip archive.org cuma ~40-80 snapshot/feed, tersebar
+  # 2020-2025, bukan harian). "Ada tapi bolong" tetap dijalankan atas
+  # keputusan sadar -- lebih baik daripada tidak ada sama sekali. Lihat
+  # PROPOSAL_HISTORICAL_SENTIMENT.md untuk detail riset & keputusan.
+  historical:
+    backend: wayback          # 'wayback' (satu-satunya yg diverifikasi layak;
+                               # 'gdelt' sengaja NotImplementedError -- lihat
+                               # scrapers/news_historical.py)
+    sleep_seconds: 2.0         # jeda sopan ke archive.org antar snapshot
 
 # -----------------------------------------------------------------------------
 # Final alignment

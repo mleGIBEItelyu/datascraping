@@ -6,6 +6,18 @@ driver that returns data wins. Supported drivers:
 - ``fred_api``  : official FRED API (api.stlouisfed.org, needs FRED_API_KEY)
 - ``dbnomics``  : DBnomics REST API, no key required (mirrors IMF/BIS/BLS/FED)
 - ``yfinance``  : daily close of a Yahoo Finance ticker
+- ``bps_dynamic_table`` : BPS (Badan Pusat Statistik) dynamic-table API, needs
+                  BPS_API_KEY (free signup at webapi.bps.go.id)
+- ``idx_stat``  : IDX Digital Statistic API (Tugas B1 -- foreign flow) --
+                  "Total Trading by Investor's Type and Net Purchase by
+                  Foreigners". TERVERIFIKASI LIVE 11 Jul 2026 via DevTools:
+                  GET primary/DigitalStatistic/GetApiData?urlName=...&query=
+                  <base64 {"year","month","quarter","type"}> -> JSON
+                  {"seriesData": [{"x": tanggal, "y": nilai_harian}, ...]}
+                  (nilai harian, miliar Rp; agregat bulanan = jumlah harian).
+                  Endpoint dilindungi Cloudflare yang menolak TLS fingerprint
+                  library ``requests`` (403) -- wajib pakai ``curl_cffi``
+                  dengan ``impersonate="chrome"``.
 
 Only free, programmatic sources are used — there is no manual/CSV fallback.
 
@@ -19,7 +31,10 @@ pipeline keeps going.
 
 from __future__ import annotations
 
+import base64
+import json
 import os
+import time
 
 import pandas as pd
 import yfinance as yf
@@ -151,6 +166,111 @@ def _fetch_bps_dynamic_table(http: HttpClient, cfg: Config, source: dict) -> pd.
     return df[["date", "value"]].dropna().drop_duplicates("date").sort_values("date")
 
 
+def _idx_stat_filter_param(year: int, month: int) -> str:
+    """Bangun parameter 'query' ter-base64 sesuai pola API statistik BEI:
+    {"year":"2023","month":"2","quarter":0,"type":"monthly"}"""
+    payload = {"year": str(year), "month": str(month), "quarter": 0, "type": "monthly"}
+    raw = json.dumps(payload, separators=(",", ":"))
+    return base64.b64encode(raw.encode()).decode()
+
+
+def _fetch_idx_stat(http: HttpClient, cfg: Config, source: dict) -> pd.DataFrame:
+    """
+    Driver Tugas B1 -- statistik resmi BEI "Total Trading by Investor's
+    Type and Net Purchase by Foreigners", agregat bulanan.
+
+    TERVERIFIKASI LIVE 11 Jul 2026 (endpoint ditemukan via network inspector,
+    lalu dites langsung dari Python): respons JSON berisi ``seriesData`` =
+    daftar nilai net purchase HARIAN dalam bulan yang diminta (miliar Rp);
+    nilai bulanan = jumlah seluruh nilai harian. Cloudflare menolak library
+    ``requests`` (403 di semua percobaan) tapi menerima ``curl_cffi`` dengan
+    ``impersonate="chrome"``. Bulan berjalan (belum lengkap) dilewati supaya
+    agregat bulanan tidak berisi angka parsial.
+
+    Respons yang gagal di-parse tetap didump ke data/raw/macro/_debug/ dan
+    driver gagal bersih (TIDAK mengarang data).
+    """
+    try:
+        from curl_cffi import requests as curl_requests
+    except ImportError as exc:
+        raise RuntimeError(
+            "driver idx_stat butuh curl_cffi (pip install curl_cffi) -- "
+            "Cloudflare BEI menolak TLS fingerprint library requests") from exc
+
+    api_url = str(source.get(
+        "api_url", "https://www.idx.co.id/primary/DigitalStatistic/GetApiData"))
+    url_name = str(source.get("url_name", "LINK_DPS_TOTAL_NET_PURCHASE"))
+    referer = str(source.get("base_url", "https://www.idx.co.id/"))
+    start_year = int(source.get("start_year", 2016))
+    today = pd.Timestamp.today()
+    headers = {"Accept": "application/json, text/plain, */*", "Referer": referer}
+    session = curl_requests.Session(impersonate="chrome")
+    rows = []
+    attempts = 0
+
+    for year in range(start_year, today.year + 1):
+        # bulan berjalan dilewati: jumlah harian bulan itu belum final
+        max_month = today.month - 1 if year == today.year else 12
+        for month in range(1, max_month + 1):
+            attempts += 1
+            filt = _idx_stat_filter_param(year, month)
+            url = (f"{api_url}?urlName={url_name}&query={filt}"
+                   "&isPrint=False&cumulative=false")
+            resp = None
+            try:
+                # server BEI membatasi laju (429 setelah ~40 request beruntun,
+                # teramati live 11 Jul 2026) -- backoff lalu ulangi bulan yg sama
+                for retry in range(4):
+                    resp = session.get(url, headers=headers, timeout=30)
+                    if resp.status_code != 429:
+                        break
+                    wait = float(resp.headers.get("Retry-After") or 0) or 10.0 * (retry + 1)
+                    log.info("idx_stat %d-%02d: 429 rate-limit, tunggu %.0fs",
+                             year, month, wait)
+                    time.sleep(wait)
+            except Exception as exc:  # noqa: BLE001
+                log.info("idx_stat %d-%02d: request gagal (%s)", year, month, exc)
+                continue
+
+            data = None
+            if resp.status_code == 200:
+                try:
+                    data = resp.json()
+                except ValueError:
+                    data = None
+            if isinstance(data, dict):
+                points = data.get("seriesData") or []
+                vals = [p.get("y") for p in points
+                        if isinstance(p, dict) and isinstance(p.get("y"), (int, float))]
+                if vals:
+                    period_end = (pd.Timestamp(year=year, month=month, day=1)
+                                  + pd.offsets.MonthEnd(0))
+                    rows.append((period_end, float(sum(vals))))
+                else:
+                    log.info("idx_stat %d-%02d: seriesData kosong -- dilewati",
+                             year, month)
+                time.sleep(0.8)  # sopan ke server BEI (di bawah ambang 429)
+                continue
+
+            # Bukan JSON valid -> dump utk diagnosis, JANGAN mengarang data.
+            debug_dir = cfg.root / "data" / "raw" / "macro" / "_debug"
+            debug_dir.mkdir(parents=True, exist_ok=True)
+            debug_path = debug_dir / f"idx_stat_{year}_{month:02d}.html"
+            debug_path.write_text(resp.text[:300_000], encoding="utf-8", errors="ignore")
+            log.info("idx_stat %d-%02d: status %s bukan JSON, didump -> %s",
+                     year, month, resp.status_code, debug_path)
+            time.sleep(0.8)
+
+    if not rows:
+        log.warning("idx_stat: 0 bulan berhasil di-parse dari %d percobaan -- "
+                    "cek data/raw/macro/_debug/*.html utk sesuaikan parser",
+                    attempts)
+        return pd.DataFrame()
+
+    df = pd.DataFrame(rows, columns=["date", "value"])
+    return df.dropna()
+
+
 def _apply_transform(df: pd.DataFrame, transform: str) -> pd.DataFrame:
     if transform == "yoy_pct":
         df = df.sort_values("date").reset_index(drop=True)
@@ -182,6 +302,8 @@ def fetch_series(http: HttpClient, cfg: Config, spec: dict) -> pd.DataFrame | No
                 df = _fetch_yfinance(source)
             elif driver == "bps_dynamic_table":
                 df = _fetch_bps_dynamic_table(http, cfg, source)
+            elif driver == "idx_stat":
+                df = _fetch_idx_stat(http, cfg, source)
             else:
                 log.warning("%s: unknown driver %s", name, driver)
                 continue
