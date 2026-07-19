@@ -1,5 +1,20 @@
 # Changelog — Batubara & Foreign Flow (Tugas A, B1, B2)
 
+> **⚠️ UPDATE 19 Juli 2026 — bagian batubara di dokumen ini SUDAH DIGANTIKAN.**
+> Dokumen di bawah (ditulis 11 Juli 2026) mendokumentasikan kolom
+> `batubara_newcastle` (driver DBnomics-only, IMF PCOALAU). Setelah kerja
+> ini digabung dengan branch `yandik`, kolom itu **DIGANTI** dengan
+> `coal_newcastle` milik yandik (yfinance `MTF=F` + fallback DBnomics +
+> `staleness_flag_days` — pendekatan lebih baik, punya penanda basi
+> eksplisit). **`batubara_newcastle` TIDAK ADA lagi di dataset/config
+> sekarang** — kalau mencari kolom batubara, cari `coal_newcastle` dan
+> `coal_newcastle_stale`. Detail keputusan penggantian ada di
+> `CHANGELOG` versi merge (lihat riwayat commit branch
+> `merge-foreign-flow-sentiment-historis`). Sisa dokumen ini (§7 soal
+> staleness, §1-5 soal foreign flow) **tetap akurat & berlaku penuh** —
+> cuma bagian "batubara_newcastle" yang perlu dibaca sebagai riwayat
+> historis, bukan kondisi kolom saat ini.
+>
 > Dokumen handover untuk pekerjaan yang dikerjakan **11 Juli 2026**: menambah
 > tiga leading indicator baru ke `MainDataset.csv` (batubara, foreign flow
 > agregat, foreign flow per-saham). Ditulis supaya orang lain — atau kamu
@@ -12,6 +27,9 @@
 > **satu batch perubahan** di atasnya. Beberapa klaim di README (kolom
 > berjumlah 149, batubara "sengaja tidak dimasukkan") **sudah tidak akurat**
 > setelah perubahan ini — lihat [§6](#6-hal-yang-membuat-readmemd-sekarang-tidak-akurat).
+> (README juga **masih belum diperbarui** untuk foreign flow, trade
+> balance, turso, GitHub Actions, dan sentimen historis — README perlu
+> penulisan ulang menyeluruh yang di luar cakupan dokumen changelog ini.)
 
 ## Daftar isi
 1. [Ringkasan status](#1-ringkasan-status)
