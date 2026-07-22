@@ -164,12 +164,39 @@ def _decay_aggregate(daily: pd.DataFrame, key_cols: list[str], half_life: float,
 # --------------------------------------------------------------------------
 # Stage entry point
 # --------------------------------------------------------------------------
+def _load_articles(cfg: Config) -> pd.DataFrame:
+    """Gabungkan RSS live (kumulatif) + backfill historis (Wayback, opsional).
+
+    ``source_type`` ditandai per baris artikel MENTAH (live/backfill) supaya
+    bisa dilacak sampai ke DatasetSentimen.csv sebagai kolom ``sent_source``
+    (lihat run()). Backfill historis SANGAT bolong (lihat disclaimer di
+    scrapers/news_historical.py) -- tanda ini WAJIB ada, bukan opsional,
+    supaya baris hasil backfill tidak dianggap setara dengan RSS langsung.
+    """
+    live_path = cfg.output_path("raw_news")
+    live = (pd.read_csv(live_path, parse_dates=["published"])
+            if live_path.exists() else pd.DataFrame())
+    if not live.empty:
+        live["source_type"] = "live"
+
+    hist_path = live_path.parent / "articles_historical.csv"
+    hist = (pd.read_csv(hist_path, parse_dates=["published"])
+            if hist_path.exists() else pd.DataFrame())
+    if not hist.empty:
+        hist["source_type"] = "backfill"
+        log.info("sentiment: +%d artikel dari backfill historis (Wayback)", len(hist))
+
+    if live.empty and hist.empty:
+        return pd.DataFrame()
+    return pd.concat([live, hist], ignore_index=True)
+
+
 def run(cfg: Config, articles: pd.DataFrame | None = None) -> pd.DataFrame:
     if articles is None:
-        path = cfg.output_path("raw_news")
-        articles = (pd.read_csv(path, parse_dates=["published"])
-                    if path.exists() else pd.DataFrame())
-    empty_cols = ["date", "ticker", "sent_score", "sent_decay", "news_count"]
+        articles = _load_articles(cfg)
+    if "source_type" not in articles.columns:
+        articles["source_type"] = "live"
+    empty_cols = ["date", "ticker", "sent_score", "sent_decay", "news_count", "sent_source"]
     ffmt = str(cfg.get("alignment.float_format", "%.6g"))
     if articles.empty:
         log.warning("no articles available; DatasetSentimen will be empty")
@@ -202,7 +229,8 @@ def run(cfg: Config, articles: pd.DataFrame | None = None) -> pd.DataFrame:
         text_lower = row.text.lower()
         sectors = set(map_sectors(text_lower, sector_kw))
         for t in tickers:
-            ticker_rows.append({"date": row.date, "ticker": t, "score": score})
+            ticker_rows.append({"date": row.date, "ticker": t, "score": score,
+                                "source_type": row.source_type})
         for pat in patterns:
             if pat["ticker"] in tickers and pat["sector"]:
                 sectors.add(pat["sector"])
@@ -224,13 +252,23 @@ def run(cfg: Config, articles: pd.DataFrame | None = None) -> pd.DataFrame:
                       n=("score", lambda s: float(s.notna().sum())),
                       news_count=("score", "size"))
                  .reset_index())
+        # sent_source: asal artikel BARU hari itu (live/backfill/mixed) --
+        # bukan atribusi sent_decay yg bisa terpengaruh hari-hari sebelumnya
+        # (lihat catatan di features/sentiment.py::_load_articles). Hari
+        # tanpa artikel baru (murni carry-forward decay) -> NaN, jujur soal
+        # keterbatasan atribusi, tidak dipaksa isi.
+        src = tdf.groupby(["ticker", "date"])["source_type"].agg(
+            lambda s: "mixed" if s.nunique() > 1
+            else ("lexicon_backfill" if s.iloc[0] == "backfill" else "lexicon_live")
+        ).rename("sent_source").reset_index()
         decayed = _decay_aggregate(daily[["ticker", "date", "score_sum", "n"]],
                                    ["ticker"], half_life, window)
         out = pd.merge(decayed[["ticker", "date", "sent_decay"]],
                        daily[["ticker", "date", "sent_score", "news_count"]],
                        on=["ticker", "date"], how="left")
+        out = pd.merge(out, src, on=["ticker", "date"], how="left")
         out["news_count"] = out["news_count"].fillna(0).astype(int)
-        out = out[["date", "ticker", "sent_score", "sent_decay", "news_count"]] \
+        out = out[["date", "ticker", "sent_score", "sent_decay", "news_count", "sent_source"]] \
             .sort_values(["ticker", "date"]).reset_index(drop=True)
     out.to_csv(cfg.output_path("dataset_sentimen"), index=False, float_format=ffmt)
     log.info("DatasetSentimen.csv: %d rows", len(out))

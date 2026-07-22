@@ -2,6 +2,7 @@ pandas>=2.2
 numpy>=1.26
 yfinance>=0.2.50
 requests>=2.31
+curl_cffi>=0.7   # driver idx_stat & scraper foreign_flow: Cloudflare BEI menolak TLS fingerprint requests
 feedparser>=6.0
 PyYAML>=6.0
 libsql-client>=0.3.1   # opsional, hanya dipakai jika storage.turso.enabled: true

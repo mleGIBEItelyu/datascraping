@@ -12,7 +12,11 @@ permissions:
 jobs:
   run-pipeline:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 60 menit (naik dari 30): run PERTAMA setelah merge foreign-flow perlu
+    # backfill penuh 2020-sekarang (~30 menit sendiri, lihat NOTES.md).
+    # Run berikutnya jauh lebih cepat karena scraper foreign-flow inkremental
+    # (cuma fetch tanggal baru).
+    timeout-minutes: 60
 
     steps:
       - name: Checkout repo

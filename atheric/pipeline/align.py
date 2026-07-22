@@ -87,6 +87,13 @@ def _join_macro_sector(spine: pd.DataFrame, cfg: Config) -> pd.DataFrame:
     return spine.merge(sec, on=["date", "sector"], how="left")
 
 
+def _join_foreign_flow(spine: pd.DataFrame, cfg: Config) -> pd.DataFrame:
+    ff = _read_csv(cfg.output_path("dataset_foreign_flow"), ["date"])
+    if ff.empty:
+        return spine
+    return spine.merge(ff, on=["date", "ticker"], how="left")
+
+
 def build_sentimen(cfg: Config) -> pd.DataFrame:
     """Assemble the standalone sentiment deliverable (``processed/sentimen.csv``).
 
@@ -197,6 +204,7 @@ def run(cfg: Config) -> pd.DataFrame:
     spine = _join_fundamentals(spine, cfg)
     spine = _join_macro(spine, cfg)
     spine = _join_macro_sector(spine, cfg)
+    spine = _join_foreign_flow(spine, cfg)
     # NOTE: sentiment is deliberately NOT joined here — MainDataset is purely
     # technical + fundamental + macro. Sentiment goes to processed/sentimen.csv.
 
