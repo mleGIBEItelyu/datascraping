@@ -394,6 +394,6 @@ alignment:
 # -----------------------------------------------------------------------------
 storage:
   turso:
-    enabled: false
+    enabled: true
     url_env: TURSO_DATABASE_URL
     token_env: TURSO_AUTH_TOKEN
