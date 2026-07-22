@@ -20,6 +20,7 @@ import pandas as pd
 
 from ..config import Config
 from ..utils.logging_utils import get_logger
+from ..storage.turso import push_datasets
 
 log = get_logger(__name__)
 
@@ -221,4 +222,5 @@ def run(cfg: Config) -> pd.DataFrame:
 
     build_sentimen(cfg)
     log_coverage(spine, cfg)
+    push_datasets(cfg)   # sink tambahan ke Turso, no-op jika storage.turso.enabled: false
     return spine
